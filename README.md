@@ -1,64 +1,238 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+# terraform-provider-unstructured
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
-
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
-
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
-
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
-
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
-
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+A Terraform provider for managing resources on the [Unstructured](https://unstructured.io/) platform. This provider enables you to declaratively manage source connectors, destination connectors, and document processing workflows through Infrastructure as Code.
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.24
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.13
+- [Go](https://golang.org/doc/install) >= 1.24 (to build the provider plugin)
+- An [Unstructured Platform](https://platform.unstructuredapp.io/) account and API key
 
-## Building The Provider
+## Installation
 
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+### From the Terraform Registry
 
-```shell
-go install
+```hcl
+terraform {
+  required_providers {
+    unstructured = {
+      source  = "bogware/unstructured"
+      version = "~> 0.1"
+    }
+  }
+}
 ```
 
-## Adding Dependencies
+### Building from Source
 
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
-
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
-
-```shell
-go get github.com/author/dependency
-go mod tidy
+```bash
+git clone https://github.com/bogware/terraform-provider-unstructured.git
+cd terraform-provider-unstructured
+make install
 ```
 
-Then commit the changes to `go.mod` and `go.sum`.
+## Authentication
 
-## Using the provider
+The provider requires an API key to authenticate with the Unstructured platform. You can obtain one from the [Unstructured dashboard](https://platform.unstructuredapp.io/).
 
-Fill this in for each provider
+Configure via the provider block:
 
-## Developing the Provider
+```hcl
+provider "unstructured" {
+  api_key = var.unstructured_api_key
+}
+```
 
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
+Or via environment variables (recommended for CI/CD):
 
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
+```bash
+export UNSTRUCTURED_API_KEY="your-api-key"
+export UNSTRUCTURED_API_URL="https://platform.unstructuredapp.io/api/v1"  # optional
+```
 
-To generate or update documentation, run `make generate`.
+> **Note:** `UNSTRUCTURED_API_URL` only needs to be set if you are using a non-default API endpoint.
 
-In order to run the full suite of Acceptance tests, run `make testacc`.
+## Usage
 
-*Note:* Acceptance tests create real resources, and often cost money to run.
+### Source Connector
 
-```shell
+Source connectors define where your documents are ingested from.
+
+```hcl
+resource "unstructured_source" "s3_docs" {
+  name = "s3-documents"
+  type = "s3"
+  config = jsonencode({
+    remote_url    = "s3://my-bucket/documents/"
+    key           = var.aws_access_key
+    secret        = var.aws_secret_key
+    recursive     = true
+  })
+}
+```
+
+### Destination Connector
+
+Destination connectors define where processed data is delivered.
+
+```hcl
+resource "unstructured_destination" "pinecone" {
+  name = "pinecone-index"
+  type = "pinecone"
+  config = jsonencode({
+    api_key    = var.pinecone_api_key
+    index_name = "documents"
+    environment = "us-east-1-aws"
+  })
+}
+```
+
+### Workflow
+
+Workflows connect sources to destinations through a configurable processing pipeline.
+
+```hcl
+resource "unstructured_workflow" "pipeline" {
+  name            = "document-pipeline"
+  source_id       = unstructured_source.s3_docs.id
+  destination_id  = unstructured_destination.pinecone.id
+  workflow_type   = "custom"
+  schedule        = "daily"
+  reprocess_all   = false
+
+  workflow_nodes = jsonencode([
+    {
+      name    = "partitioner"
+      type    = "partition"
+      subtype = "vlm"
+      settings = {
+        provider   = "anthropic"
+        model      = "claude-sonnet-4-20250514"
+      }
+    },
+    {
+      name    = "chunker"
+      type    = "chunk"
+      subtype = "chunk_by_title"
+      settings = {
+        multipage_sections    = true
+        combine_text_under_n_chars = 500
+        max_characters        = 1500
+      }
+    },
+    {
+      name    = "embedder"
+      type    = "embed"
+      subtype = "openai"
+      settings = {
+        model_name = "text-embedding-3-small"
+        api_key    = var.openai_api_key
+      }
+    }
+  ])
+}
+```
+
+### Data Sources
+
+Read existing resources for reference or cross-stack usage:
+
+```hcl
+data "unstructured_source" "existing" {
+  id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+
+data "unstructured_destination" "existing" {
+  id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+
+data "unstructured_workflow" "existing" {
+  id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+
+data "unstructured_job" "latest" {
+  id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+### Import
+
+All managed resources support `terraform import`:
+
+```bash
+terraform import unstructured_source.s3_docs <source-id>
+terraform import unstructured_destination.pinecone <destination-id>
+terraform import unstructured_workflow.pipeline <workflow-id>
+```
+
+## Resources Reference
+
+| Resource | Description |
+|----------|-------------|
+| `unstructured_source` | Manages a source connector (S3, Azure Blob, GCS, OneDrive, Sharepoint, SFTP, and 15+ more) |
+| `unstructured_destination` | Manages a destination connector (Pinecone, Elasticsearch, Weaviate, S3, PostgreSQL, and 20+ more) |
+| `unstructured_workflow` | Manages a processing workflow connecting sources to destinations |
+
+## Data Sources Reference
+
+| Data Source | Description |
+|-------------|-------------|
+| `unstructured_source` | Reads an existing source connector by ID |
+| `unstructured_destination` | Reads an existing destination connector by ID |
+| `unstructured_workflow` | Reads an existing workflow by ID |
+| `unstructured_job` | Reads a job execution by ID |
+
+## Supported Connector Types
+
+### Sources
+
+`azure`, `confluence`, `couchbase`, `databricks_volumes`, `delta_table`, `elasticsearch`, `gcs`, `google_drive`, `kafka-cloud`, `mongodb`, `motherduck`, `onedrive`, `opensearch`, `outlook`, `postgres`, `s3`, `salesforce`, `sftp`, `sharepoint`, `snowflake`, `teradata`, `ibm_watsonx_s3`
+
+### Destinations
+
+`azure`, `astradb`, `azure_ai_search`, `couchbase`, `databricks_volumes`, `databricks_volume_delta_tables`, `delta_table`, `elasticsearch`, `gcs`, `kafka-cloud`, `milvus`, `mongodb`, `motherduck`, `neo4j`, `onedrive`, `opensearch`, `pinecone`, `postgres`, `redis`, `qdrant-cloud`, `s3`, `snowflake`, `teradata`, `weaviate-cloud`, `ibm_watsonx_s3`
+
+## Development
+
+### Prerequisites
+
+- Go >= 1.24
+- GNU Make
+- [golangci-lint](https://golangci-lint.run/)
+
+### Build
+
+```bash
+make build
+```
+
+### Run Unit Tests
+
+```bash
+make test
+```
+
+### Run Acceptance Tests
+
+Acceptance tests create real resources against the Unstructured API:
+
+```bash
+export UNSTRUCTURED_API_KEY="your-api-key"
 make testacc
 ```
+
+### Generate Documentation
+
+```bash
+make generate
+```
+
+### Full Validation (format, lint, build, generate)
+
+```bash
+make
+```
+
+## License
+
+MPL-2.0 - See [LICENSE](LICENSE) for details.

@@ -5,104 +5,109 @@ package provider
 
 import (
 	"context"
-	"net/http"
+	"os"
 
-	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
-	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure ScaffoldingProvider satisfies various provider interfaces.
-var _ provider.Provider = &ScaffoldingProvider{}
-var _ provider.ProviderWithFunctions = &ScaffoldingProvider{}
-var _ provider.ProviderWithEphemeralResources = &ScaffoldingProvider{}
-var _ provider.ProviderWithActions = &ScaffoldingProvider{}
+// Ensure UnstructuredProvider satisfies various provider interfaces.
+var _ provider.Provider = &UnstructuredProvider{}
 
-// ScaffoldingProvider defines the provider implementation.
-type ScaffoldingProvider struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
+// UnstructuredProvider defines the provider implementation.
+type UnstructuredProvider struct {
 	version string
 }
 
-// ScaffoldingProviderModel describes the provider data model.
-type ScaffoldingProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
+// UnstructuredProviderModel describes the provider data model.
+type UnstructuredProviderModel struct {
+	APIKey types.String `tfsdk:"api_key"`
+	APIURL types.String `tfsdk:"api_url"`
 }
 
-func (p *ScaffoldingProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+func (p *UnstructuredProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "unstructured"
 	resp.Version = p.version
 }
 
-func (p *ScaffoldingProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *UnstructuredProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "The Unstructured provider manages resources in the [Unstructured](https://unstructured.io/) platform API. " +
+			"It supports managing source connectors, destination connectors, and workflows for document processing pipelines.",
 		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example provider attribute",
-				Optional:            true,
+			"api_key": schema.StringAttribute{
+				MarkdownDescription: "The API key for authenticating with the Unstructured API. " +
+					"Can also be set via the `UNSTRUCTURED_API_KEY` environment variable.",
+				Optional:  true,
+				Sensitive: true,
+			},
+			"api_url": schema.StringAttribute{
+				MarkdownDescription: "The base URL for the Unstructured API. " +
+					"Defaults to `https://platform.unstructuredapp.io/api/v1`. " +
+					"Can also be set via the `UNSTRUCTURED_API_URL` environment variable.",
+				Optional: true,
 			},
 		},
 	}
 }
 
-func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ScaffoldingProviderModel
+func (p *UnstructuredProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data UnstructuredProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
+	// Defer to env vars when config values are unknown (e.g. during plan
+	// with variables that depend on other resources).
+	apiKey := os.Getenv("UNSTRUCTURED_API_KEY")
+	if !data.APIKey.IsNull() && !data.APIKey.IsUnknown() {
+		apiKey = data.APIKey.ValueString()
+	}
+	if apiKey == "" {
+		resp.Diagnostics.AddError(
+			"Missing API Key",
+			"The Unstructured API key must be set in the provider configuration or "+
+				"via the UNSTRUCTURED_API_KEY environment variable.",
+		)
+		return
+	}
 
-	// Example client configuration for data sources and resources
-	client := http.DefaultClient
+	apiURL := os.Getenv("UNSTRUCTURED_API_URL")
+	if !data.APIURL.IsNull() && !data.APIURL.IsUnknown() {
+		apiURL = data.APIURL.ValueString()
+	}
+
+	client := NewUnstructuredClient(apiKey, apiURL, p.version)
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
 
-func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
+func (p *UnstructuredProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewSourceResource,
+		NewDestinationResource,
+		NewWorkflowResource,
 	}
 }
 
-func (p *ScaffoldingProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
-	}
-}
-
-func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *UnstructuredProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
+		NewSourceDataSource,
+		NewDestinationDataSource,
+		NewWorkflowDataSource,
+		NewJobDataSource,
 	}
 }
 
-func (p *ScaffoldingProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
-}
-
-func (p *ScaffoldingProvider) Actions(ctx context.Context) []func() action.Action {
-	return []func() action.Action{
-		NewExampleAction,
-	}
-}
-
+// New returns a function that creates a new provider instance.
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &ScaffoldingProvider{
+		return &UnstructuredProvider{
 			version: version,
 		}
 	}
