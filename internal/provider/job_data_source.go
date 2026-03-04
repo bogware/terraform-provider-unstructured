@@ -26,12 +26,13 @@ type JobDataSource struct {
 
 // JobDataSourceModel describes the data source data model.
 type JobDataSourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	WorkflowID       types.String `tfsdk:"workflow_id"`
-	Status           types.String `tfsdk:"status"`
-	ProcessingStatus types.String `tfsdk:"processing_status"`
-	CreatedAt        types.String `tfsdk:"created_at"`
-	UpdatedAt        types.String `tfsdk:"updated_at"`
+	ID           types.String `tfsdk:"id"`
+	WorkflowID   types.String `tfsdk:"workflow_id"`
+	WorkflowName types.String `tfsdk:"workflow_name"`
+	Status       types.String `tfsdk:"status"`
+	CreatedAt    types.String `tfsdk:"created_at"`
+	Runtime      types.String `tfsdk:"runtime"`
+	JobType      types.String `tfsdk:"job_type"`
 }
 
 func (d *JobDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -51,23 +52,27 @@ func (d *JobDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, re
 				Computed:            true,
 				MarkdownDescription: "The ID of the workflow that owns this job.",
 			},
+			"workflow_name": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "The name of the workflow that owns this job.",
+			},
 			"status": schema.StringAttribute{
 				Computed: true,
 				MarkdownDescription: "The status of the job. " +
 					"Possible values: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `STOPPED`, `FAILED`.",
 			},
-			"processing_status": schema.StringAttribute{
-				Computed: true,
-				MarkdownDescription: "The detailed processing status of the job. " +
-					"Possible values: `SCHEDULED`, `IN_PROGRESS`, `SUCCESS`, `COMPLETED_WITH_ERRORS`, `STOPPED`, `FAILED`.",
-			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The timestamp when the job was created.",
 			},
-			"updated_at": schema.StringAttribute{
+			"runtime": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The timestamp when the job was last updated.",
+				MarkdownDescription: "The runtime duration of the job.",
+			},
+			"job_type": schema.StringAttribute{
+				Computed: true,
+				MarkdownDescription: "The type of the job. " +
+					"Possible values: `ephemeral`, `persistent`, `scheduled`, `template`.",
 			},
 		},
 	}
@@ -108,19 +113,20 @@ func (d *JobDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 
 	data.WorkflowID = types.StringValue(job.WorkflowID)
+	data.WorkflowName = types.StringValue(job.WorkflowName)
 	data.Status = types.StringValue(job.Status)
+	data.CreatedAt = types.StringValue(job.CreatedAt)
 
-	if job.ProcessingStatus != "" {
-		data.ProcessingStatus = types.StringValue(job.ProcessingStatus)
+	if job.Runtime != nil {
+		data.Runtime = types.StringValue(*job.Runtime)
 	} else {
-		data.ProcessingStatus = types.StringNull()
+		data.Runtime = types.StringNull()
 	}
 
-	data.CreatedAt = types.StringValue(job.CreatedAt)
-	if job.UpdatedAt != nil {
-		data.UpdatedAt = types.StringValue(*job.UpdatedAt)
+	if job.JobType != "" {
+		data.JobType = types.StringValue(job.JobType)
 	} else {
-		data.UpdatedAt = types.StringNull()
+		data.JobType = types.StringNull()
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

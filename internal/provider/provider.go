@@ -62,8 +62,10 @@ func (p *UnstructuredProvider) Configure(ctx context.Context, req provider.Confi
 		return
 	}
 
+	// Defer to env vars when config values are unknown (e.g. during plan
+	// with variables that depend on other resources).
 	apiKey := os.Getenv("UNSTRUCTURED_API_KEY")
-	if !data.APIKey.IsNull() {
+	if !data.APIKey.IsNull() && !data.APIKey.IsUnknown() {
 		apiKey = data.APIKey.ValueString()
 	}
 	if apiKey == "" {
@@ -76,11 +78,11 @@ func (p *UnstructuredProvider) Configure(ctx context.Context, req provider.Confi
 	}
 
 	apiURL := os.Getenv("UNSTRUCTURED_API_URL")
-	if !data.APIURL.IsNull() {
+	if !data.APIURL.IsNull() && !data.APIURL.IsUnknown() {
 		apiURL = data.APIURL.ValueString()
 	}
 
-	client := NewUnstructuredClient(apiKey, apiURL)
+	client := NewUnstructuredClient(apiKey, apiURL, p.version)
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }

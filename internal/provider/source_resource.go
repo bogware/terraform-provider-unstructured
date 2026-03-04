@@ -197,9 +197,7 @@ func (r *SourceResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	apiReq := CreateSourceRequest{
-		Name:   data.Name.ValueString(),
-		Type:   data.Type.ValueString(),
+	apiReq := UpdateSourceRequest{
 		Config: config,
 	}
 

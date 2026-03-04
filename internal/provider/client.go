@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -20,21 +22,25 @@ type UnstructuredClient struct {
 	httpClient *http.Client
 	apiKey     string
 	apiURL     string
+	userAgent  string
 }
 
 // NewUnstructuredClient creates a new API client.
-func NewUnstructuredClient(apiKey, apiURL string) *UnstructuredClient {
+func NewUnstructuredClient(apiKey, apiURL, version string) *UnstructuredClient {
 	if apiURL == "" {
 		apiURL = defaultAPIURL
 	}
+	// Strip trailing slash for consistent path joining.
+	apiURL = strings.TrimRight(apiURL, "/")
 	return &UnstructuredClient{
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 		apiKey:     apiKey,
 		apiURL:     apiURL,
+		userAgent:  "terraform-provider-unstructured/" + version,
 	}
 }
 
-func (c *UnstructuredClient) doRequest(ctx context.Context, method, path string, body interface{}) ([]byte, int, error) {
+func (c *UnstructuredClient) doRequest(ctx context.Context, method, urlPath string, body interface{}) ([]byte, int, error) {
 	var reqBody io.Reader
 	if body != nil {
 		jsonBytes, err := json.Marshal(body)
@@ -44,13 +50,14 @@ func (c *UnstructuredClient) doRequest(ctx context.Context, method, path string,
 		reqBody = bytes.NewBuffer(jsonBytes)
 	}
 
-	url := c.apiURL + path
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	fullURL := c.apiURL + urlPath
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, reqBody)
 	if err != nil {
 		return nil, 0, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("accept", "application/json")
+	req.Header.Set("user-agent", c.userAgent)
 	req.Header.Set("unstructured-api-key", c.apiKey)
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
@@ -108,11 +115,11 @@ func (c *UnstructuredClient) CreateSource(ctx context.Context, req CreateSourceR
 
 // GetSource retrieves a source connector by ID.
 func (c *UnstructuredClient) GetSource(ctx context.Context, id string) (*SourceConnector, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/sources/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/sources/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, err
 	}
-	if statusCode == 404 {
+	if statusCode == 404 || statusCode == 422 {
 		return nil, nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
@@ -126,9 +133,15 @@ func (c *UnstructuredClient) GetSource(ctx context.Context, id string) (*SourceC
 	return &source, nil
 }
 
+// UpdateSourceRequest is the request body for updating a source connector.
+// The API only accepts config changes on update.
+type UpdateSourceRequest struct {
+	Config map[string]interface{} `json:"config"`
+}
+
 // UpdateSource updates an existing source connector.
-func (c *UnstructuredClient) UpdateSource(ctx context.Context, id string, req CreateSourceRequest) (*SourceConnector, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/sources/"+id, req)
+func (c *UnstructuredClient) UpdateSource(ctx context.Context, id string, req UpdateSourceRequest) (*SourceConnector, error) {
+	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/sources/"+url.PathEscape(id), req)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +158,13 @@ func (c *UnstructuredClient) UpdateSource(ctx context.Context, id string, req Cr
 
 // DeleteSource deletes a source connector by ID.
 func (c *UnstructuredClient) DeleteSource(ctx context.Context, id string) error {
-	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/sources/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/sources/"+url.PathEscape(id), nil)
 	if err != nil {
 		return err
+	}
+	// Treat 404 as success for delete idempotency.
+	if statusCode == 404 || statusCode == 422 {
+		return nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
 		return fmt.Errorf("API returned status %d: %s", statusCode, string(body))
@@ -210,11 +227,11 @@ func (c *UnstructuredClient) CreateDestination(ctx context.Context, req CreateDe
 
 // GetDestination retrieves a destination connector by ID.
 func (c *UnstructuredClient) GetDestination(ctx context.Context, id string) (*DestinationConnector, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/destinations/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/destinations/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, err
 	}
-	if statusCode == 404 {
+	if statusCode == 404 || statusCode == 422 {
 		return nil, nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
@@ -228,9 +245,15 @@ func (c *UnstructuredClient) GetDestination(ctx context.Context, id string) (*De
 	return &dest, nil
 }
 
+// UpdateDestinationRequest is the request body for updating a destination connector.
+// The API only accepts config changes on update.
+type UpdateDestinationRequest struct {
+	Config map[string]interface{} `json:"config"`
+}
+
 // UpdateDestination updates an existing destination connector.
-func (c *UnstructuredClient) UpdateDestination(ctx context.Context, id string, req CreateDestinationRequest) (*DestinationConnector, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/destinations/"+id, req)
+func (c *UnstructuredClient) UpdateDestination(ctx context.Context, id string, req UpdateDestinationRequest) (*DestinationConnector, error) {
+	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/destinations/"+url.PathEscape(id), req)
 	if err != nil {
 		return nil, err
 	}
@@ -247,9 +270,13 @@ func (c *UnstructuredClient) UpdateDestination(ctx context.Context, id string, r
 
 // DeleteDestination deletes a destination connector by ID.
 func (c *UnstructuredClient) DeleteDestination(ctx context.Context, id string) error {
-	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/destinations/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/destinations/"+url.PathEscape(id), nil)
 	if err != nil {
 		return err
+	}
+	// Treat 404 as success for delete idempotency.
+	if statusCode == 404 || statusCode == 422 {
+		return nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
 		return fmt.Errorf("API returned status %d: %s", statusCode, string(body))
@@ -327,7 +354,9 @@ type UpdateWorkflowRequest struct {
 	Name          string         `json:"name,omitempty"`
 	SourceID      string         `json:"source_id,omitempty"`
 	DestinationID string         `json:"destination_id,omitempty"`
+	WorkflowType  string         `json:"workflow_type,omitempty"`
 	WorkflowNodes []WorkflowNode `json:"workflow_nodes,omitempty"`
+	TemplateID    string         `json:"template_id,omitempty"`
 	Schedule      string         `json:"schedule,omitempty"`
 	ReprocessAll  *bool          `json:"reprocess_all,omitempty"`
 }
@@ -351,11 +380,11 @@ func (c *UnstructuredClient) CreateWorkflow(ctx context.Context, req CreateWorkf
 
 // GetWorkflow retrieves a workflow by ID.
 func (c *UnstructuredClient) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/workflows/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/workflows/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, err
 	}
-	if statusCode == 404 {
+	if statusCode == 404 || statusCode == 422 {
 		return nil, nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
@@ -371,7 +400,7 @@ func (c *UnstructuredClient) GetWorkflow(ctx context.Context, id string) (*Workf
 
 // UpdateWorkflow updates an existing workflow.
 func (c *UnstructuredClient) UpdateWorkflow(ctx context.Context, id string, req UpdateWorkflowRequest) (*Workflow, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/workflows/"+id, req)
+	body, statusCode, err := c.doRequest(ctx, http.MethodPut, "/workflows/"+url.PathEscape(id), req)
 	if err != nil {
 		return nil, err
 	}
@@ -388,9 +417,13 @@ func (c *UnstructuredClient) UpdateWorkflow(ctx context.Context, id string, req 
 
 // DeleteWorkflow deletes a workflow by ID.
 func (c *UnstructuredClient) DeleteWorkflow(ctx context.Context, id string) error {
-	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/workflows/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodDelete, "/workflows/"+url.PathEscape(id), nil)
 	if err != nil {
 		return err
+	}
+	// Treat 404 as success for delete idempotency.
+	if statusCode == 404 || statusCode == 422 {
+		return nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
 		return fmt.Errorf("API returned status %d: %s", statusCode, string(body))
@@ -400,7 +433,7 @@ func (c *UnstructuredClient) DeleteWorkflow(ctx context.Context, id string) erro
 
 // RunWorkflow triggers a workflow run.
 func (c *UnstructuredClient) RunWorkflow(ctx context.Context, id string) error {
-	body, statusCode, err := c.doRequest(ctx, http.MethodPost, "/workflows/"+id+"/run", nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodPost, "/workflows/"+url.PathEscape(id)+"/run", nil)
 	if err != nil {
 		return err
 	}
@@ -431,21 +464,22 @@ func (c *UnstructuredClient) ListWorkflows(ctx context.Context) ([]Workflow, err
 
 // Job represents a job from the API.
 type Job struct {
-	ID               string  `json:"id"`
-	WorkflowID       string  `json:"workflow_id"`
-	Status           string  `json:"status"`
-	ProcessingStatus string  `json:"processing_status,omitempty"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        *string `json:"updated_at"`
+	ID           string  `json:"id"`
+	WorkflowID   string  `json:"workflow_id"`
+	WorkflowName string  `json:"workflow_name"`
+	Status       string  `json:"status"`
+	CreatedAt    string  `json:"created_at"`
+	Runtime      *string `json:"runtime"`
+	JobType      string  `json:"job_type,omitempty"`
 }
 
 // GetJob retrieves a job by ID.
 func (c *UnstructuredClient) GetJob(ctx context.Context, id string) (*Job, error) {
-	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/jobs/"+id, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/jobs/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, err
 	}
-	if statusCode == 404 {
+	if statusCode == 404 || statusCode == 422 {
 		return nil, nil
 	}
 	if statusCode < 200 || statusCode >= 300 {
@@ -461,11 +495,13 @@ func (c *UnstructuredClient) GetJob(ctx context.Context, id string) (*Job, error
 
 // ListJobs lists jobs, optionally filtered by workflow ID.
 func (c *UnstructuredClient) ListJobs(ctx context.Context, workflowID string) ([]Job, error) {
-	path := "/jobs/"
+	urlPath := "/jobs/"
 	if workflowID != "" {
-		path += "?workflow_id=" + workflowID
+		params := url.Values{}
+		params.Set("workflow_id", workflowID)
+		urlPath += "?" + params.Encode()
 	}
-	body, statusCode, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, urlPath, nil)
 	if err != nil {
 		return nil, err
 	}

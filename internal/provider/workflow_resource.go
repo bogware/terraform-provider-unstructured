@@ -294,9 +294,14 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 
 	if len(wf.Sources) > 0 {
 		data.SourceID = types.StringValue(wf.Sources[0])
+	} else {
+		data.SourceID = types.StringNull()
 	}
+
 	if len(wf.Destinations) > 0 {
 		data.DestinationID = types.StringValue(wf.Destinations[0])
+	} else {
+		data.DestinationID = types.StringNull()
 	}
 
 	if len(wf.WorkflowNodes) > 0 {
@@ -304,9 +309,13 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 		if err == nil {
 			data.WorkflowNodes = types.StringValue(string(nodesJSON))
 		}
+	} else {
+		data.WorkflowNodes = types.StringNull()
 	}
 
 	if wf.Schedule != nil && len(wf.Schedule.CrontabEntries) > 0 {
 		data.Schedule = types.StringValue(wf.Schedule.CrontabEntries[0].CronExpression)
+	} else {
+		data.Schedule = types.StringNull()
 	}
 }

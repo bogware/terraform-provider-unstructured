@@ -198,9 +198,7 @@ func (r *DestinationResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	apiReq := CreateDestinationRequest{
-		Name:   data.Name.ValueString(),
-		Type:   data.Type.ValueString(),
+	apiReq := UpdateDestinationRequest{
 		Config: config,
 	}
 
