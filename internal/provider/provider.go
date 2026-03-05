@@ -101,6 +101,7 @@ func (p *UnstructuredProvider) DataSources(_ context.Context) []func() datasourc
 		NewDestinationDataSource,
 		NewWorkflowDataSource,
 		NewJobDataSource,
+		NewTemplateDataSource,
 	}
 }
 

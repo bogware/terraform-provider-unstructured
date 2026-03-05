@@ -79,7 +79,7 @@ func TestProviderDataSources(t *testing.T) {
 	p := &UnstructuredProvider{}
 	dataSources := p.DataSources(context.Background())
 
-	expected := 4 // source, destination, workflow, job
+	expected := 5 // source, destination, workflow, job, template
 	if len(dataSources) != expected {
 		t.Errorf("expected %d data sources, got %d", expected, len(dataSources))
 	}
@@ -231,6 +231,22 @@ func TestJobDataSourceSchema(t *testing.T) {
 	}
 }
 
+func TestTemplateDataSourceSchema(t *testing.T) {
+	d := NewTemplateDataSource()
+	resp := &datasource.SchemaResponse{}
+	d.Schema(context.Background(), datasource.SchemaRequest{}, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("unexpected error: %v", resp.Diagnostics)
+	}
+
+	for _, attr := range []string{"id", "name", "description", "workflow_type", "workflow_nodes"} {
+		if _, ok := resp.Schema.Attributes[attr]; !ok {
+			t.Errorf("expected attribute %q to exist", attr)
+		}
+	}
+}
+
 // --- Resource/Data Source Metadata Tests ---
 
 func TestSourceResourceMetadata(t *testing.T) {
@@ -270,6 +286,16 @@ func TestJobDataSourceMetadata(t *testing.T) {
 
 	if resp.TypeName != "unstructured_job" {
 		t.Errorf("expected type name 'unstructured_job', got %q", resp.TypeName)
+	}
+}
+
+func TestTemplateDataSourceMetadata(t *testing.T) {
+	d := NewTemplateDataSource()
+	resp := &datasource.MetadataResponse{}
+	d.Metadata(context.Background(), datasource.MetadataRequest{ProviderTypeName: "unstructured"}, resp)
+
+	if resp.TypeName != "unstructured_template" {
+		t.Errorf("expected type name 'unstructured_template', got %q", resp.TypeName)
 	}
 }
 

@@ -718,3 +718,75 @@ func TestDeleteSource422IsIdempotent(t *testing.T) {
 		t.Fatalf("expected no error for 422 delete, got: %v", err)
 	}
 }
+
+// --- Template Tests ---
+
+func TestGetTemplate(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/templates/tmpl-123" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(Template{
+			ID:           "tmpl-123",
+			Name:         "Basic Pipeline",
+			Description:  "A basic document processing pipeline",
+			WorkflowType: "custom",
+			WorkflowNodes: []WorkflowNode{
+				{Name: "partitioner", Type: "partition", Subtype: "auto"},
+			},
+		})
+	})
+	defer ts.Close()
+
+	result, err := client.GetTemplate(context.Background(), "tmpl-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil || result.ID != "tmpl-123" {
+		t.Errorf("unexpected result: %+v", result)
+	}
+	if result.Name != "Basic Pipeline" {
+		t.Errorf("expected name 'Basic Pipeline', got %s", result.Name)
+	}
+	if len(result.WorkflowNodes) != 1 {
+		t.Errorf("expected 1 workflow node, got %d", len(result.WorkflowNodes))
+	}
+}
+
+func TestGetTemplateNotFound(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	defer ts.Close()
+
+	result, err := client.GetTemplate(context.Background(), "nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil for 404, got %+v", result)
+	}
+}
+
+func TestListTemplates(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/templates/" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]Template{
+			{ID: "tmpl-1", Name: "Basic", WorkflowType: "custom"},
+			{ID: "tmpl-2", Name: "Advanced", WorkflowType: "custom"},
+		})
+	})
+	defer ts.Close()
+
+	results, err := client.ListTemplates(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 templates, got %d", len(results))
+	}
+}
