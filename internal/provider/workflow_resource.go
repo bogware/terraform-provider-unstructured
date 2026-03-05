@@ -318,4 +318,10 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 	} else {
 		data.Schedule = types.StringNull()
 	}
+
+	// TemplateID is write-only (used at creation time); preserve the
+	// current state value. On import it will be null.
+	if data.TemplateID.IsUnknown() {
+		data.TemplateID = types.StringNull()
+	}
 }

@@ -481,3 +481,240 @@ func TestAPIServerError(t *testing.T) {
 		t.Fatal("expected error for 500 response")
 	}
 }
+
+// --- Additional Destination CRUD Tests ---
+
+func TestGetDestination(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/destinations/dst-456" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(DestinationConnector{
+			ID:        "dst-456",
+			Name:      "my-dest",
+			Type:      "s3",
+			Config:    map[string]interface{}{"remote_url": "s3://bucket"},
+			CreatedAt: "2025-01-01T00:00:00Z",
+		})
+	})
+	defer ts.Close()
+
+	result, err := client.GetDestination(context.Background(), "dst-456")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil || result.ID != "dst-456" {
+		t.Errorf("unexpected result: %+v", result)
+	}
+}
+
+func TestUpdateDestination(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		updatedAt := "2025-06-01T00:00:00Z"
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(DestinationConnector{
+			ID:        "dst-456",
+			Name:      "my-dest",
+			Type:      "s3",
+			CreatedAt: "2025-01-01T00:00:00Z",
+			UpdatedAt: &updatedAt,
+		})
+	})
+	defer ts.Close()
+
+	result, err := client.UpdateDestination(context.Background(), "dst-456", UpdateDestinationRequest{
+		Config: map[string]interface{}{"remote_url": "s3://updated"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.UpdatedAt == nil {
+		t.Error("expected updated_at to be set")
+	}
+}
+
+func TestDeleteDestination(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/destinations/dst-456" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	defer ts.Close()
+
+	err := client.DeleteDestination(context.Background(), "dst-456")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestListDestinations(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]DestinationConnector{
+			{ID: "dst-1", Name: "one", Type: "s3", CreatedAt: "2025-01-01T00:00:00Z"},
+		})
+	})
+	defer ts.Close()
+
+	results, err := client.ListDestinations(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected 1 destination, got %d", len(results))
+	}
+}
+
+// --- Additional Workflow CRUD Tests ---
+
+func TestGetWorkflow(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/workflows/wf-789" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(Workflow{
+			ID:           "wf-789",
+			Name:         "test-wf",
+			Sources:      []string{"src-1"},
+			Destinations: []string{"dst-1"},
+			WorkflowType: "custom",
+			Status:       "active",
+			CreatedAt:    "2025-01-01T00:00:00Z",
+			ReprocessAll: true,
+		})
+	})
+	defer ts.Close()
+
+	result, err := client.GetWorkflow(context.Background(), "wf-789")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil || result.ID != "wf-789" {
+		t.Errorf("unexpected result: %+v", result)
+	}
+	if result.ReprocessAll != true {
+		t.Error("expected reprocess_all to be true")
+	}
+}
+
+func TestUpdateWorkflow(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		updatedAt := "2025-06-01T00:00:00Z"
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(Workflow{
+			ID:           "wf-789",
+			Name:         "updated-wf",
+			Sources:      []string{"src-1"},
+			Destinations: []string{"dst-1"},
+			WorkflowType: "custom",
+			Status:       "active",
+			CreatedAt:    "2025-01-01T00:00:00Z",
+			UpdatedAt:    &updatedAt,
+			ReprocessAll: false,
+		})
+	})
+	defer ts.Close()
+
+	reprocess := false
+	result, err := client.UpdateWorkflow(context.Background(), "wf-789", UpdateWorkflowRequest{
+		Name:         "updated-wf",
+		ReprocessAll: &reprocess,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Name != "updated-wf" {
+		t.Errorf("expected name 'updated-wf', got %s", result.Name)
+	}
+}
+
+func TestDeleteWorkflow(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/workflows/wf-789" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	defer ts.Close()
+
+	err := client.DeleteWorkflow(context.Background(), "wf-789")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestListWorkflows(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]Workflow{
+			{ID: "wf-1", Name: "one", WorkflowType: "custom", Status: "active", CreatedAt: "2025-01-01T00:00:00Z"},
+			{ID: "wf-2", Name: "two", WorkflowType: "template", Status: "inactive", CreatedAt: "2025-01-01T00:00:00Z"},
+		})
+	})
+	defer ts.Close()
+
+	results, err := client.ListWorkflows(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 workflows, got %d", len(results))
+	}
+}
+
+// --- Job Not Found Test ---
+
+func TestGetJobNotFound(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	defer ts.Close()
+
+	result, err := client.GetJob(context.Background(), "nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil for 404, got %+v", result)
+	}
+}
+
+// --- URL Path Escaping Test ---
+
+func TestPathEscapingForSpecialCharacters(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		// Go's HTTP server decodes the path in URL.Path. The raw
+		// percent-encoded version is in URL.RawPath.
+		if r.URL.RawPath != "/sources/id%2Fwith%2Fslashes" {
+			t.Errorf("expected escaped RawPath, got %s", r.URL.RawPath)
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+	defer ts.Close()
+
+	_, _ = client.GetSource(context.Background(), "id/with/slashes")
+}
+
+// --- Delete 422 Idempotency Test ---
+
+func TestDeleteSource422IsIdempotent(t *testing.T) {
+	ts, client := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(422)
+		_, _ = w.Write([]byte(`{"detail":"unprocessable"}`))
+	})
+	defer ts.Close()
+
+	err := client.DeleteSource(context.Background(), "bad-id")
+	if err != nil {
+		t.Fatalf("expected no error for 422 delete, got: %v", err)
+	}
+}
