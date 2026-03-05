@@ -515,3 +515,51 @@ func (c *UnstructuredClient) ListJobs(ctx context.Context, workflowID string) ([
 	}
 	return jobs, nil
 }
+
+// --- Template Operations ---
+
+// Template represents a workflow template from the API.
+type Template struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	Description   string         `json:"description"`
+	WorkflowType  string         `json:"workflow_type"`
+	WorkflowNodes []WorkflowNode `json:"workflow_nodes"`
+}
+
+// GetTemplate retrieves a template by ID.
+func (c *UnstructuredClient) GetTemplate(ctx context.Context, id string) (*Template, error) {
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/templates/"+url.PathEscape(id), nil)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode == 404 || statusCode == 422 {
+		return nil, nil
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return nil, fmt.Errorf("API returned status %d: %s", statusCode, string(body))
+	}
+
+	var tmpl Template
+	if err := json.Unmarshal(body, &tmpl); err != nil {
+		return nil, fmt.Errorf("unmarshaling response: %w", err)
+	}
+	return &tmpl, nil
+}
+
+// ListTemplates lists all available templates.
+func (c *UnstructuredClient) ListTemplates(ctx context.Context) ([]Template, error) {
+	body, statusCode, err := c.doRequest(ctx, http.MethodGet, "/templates/", nil)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return nil, fmt.Errorf("API returned status %d: %s", statusCode, string(body))
+	}
+
+	var templates []Template
+	if err := json.Unmarshal(body, &templates); err != nil {
+		return nil, fmt.Errorf("unmarshaling response: %w", err)
+	}
+	return templates, nil
+}

@@ -8,8 +8,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/bogware/terraform-provider-unstructured/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-provider-scaffolding-framework/internal/provider"
 )
 
 var (

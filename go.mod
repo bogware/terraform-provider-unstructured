@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-provider-scaffolding-framework
+module github.com/bogware/terraform-provider-unstructured
 
 go 1.24.7
 

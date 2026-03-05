@@ -41,16 +41,19 @@ func (d *SourceDataSource) Metadata(_ context.Context, req datasource.MetadataRe
 
 func (d *SourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Use this data source to retrieve information about an existing source connector.",
+		MarkdownDescription: "Use this data source to retrieve information about an existing source connector. " +
+			"Look up by `id` or `name` (exactly one must be specified).",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "The unique identifier of the source connector.",
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The unique identifier of the source connector. Exactly one of `id` or `name` must be specified.",
 			},
 			"name": schema.StringAttribute{
+				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "The name of the source connector.",
+				MarkdownDescription: "The name of the source connector. Exactly one of `id` or `name` must be specified.",
 			},
 			"type": schema.StringAttribute{
 				Computed:            true,
@@ -97,16 +100,51 @@ func (d *SourceDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	source, err := d.client.GetSource(ctx, data.ID.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read source connector: %s", err))
+	hasID := !data.ID.IsNull() && !data.ID.IsUnknown()
+	hasName := !data.Name.IsNull() && !data.Name.IsUnknown()
+
+	if !hasID && !hasName {
+		resp.Diagnostics.AddError("Missing Attribute", "Exactly one of `id` or `name` must be specified.")
 		return
 	}
-	if source == nil {
-		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Source connector %s not found.", data.ID.ValueString()))
+	if hasID && hasName {
+		resp.Diagnostics.AddError("Conflicting Attributes", "Only one of `id` or `name` may be specified, not both.")
 		return
 	}
 
+	var source *SourceConnector
+
+	if hasID {
+		var err error
+		source, err = d.client.GetSource(ctx, data.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read source connector: %s", err))
+			return
+		}
+		if source == nil {
+			resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Source connector with ID %q not found.", data.ID.ValueString()))
+			return
+		}
+	} else {
+		sources, err := d.client.ListSources(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to list source connectors: %s", err))
+			return
+		}
+		name := data.Name.ValueString()
+		for i := range sources {
+			if sources[i].Name == name {
+				source = &sources[i]
+				break
+			}
+		}
+		if source == nil {
+			resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Source connector with name %q not found.", name))
+			return
+		}
+	}
+
+	data.ID = types.StringValue(source.ID)
 	data.Name = types.StringValue(source.Name)
 	data.Type = types.StringValue(source.Type)
 
