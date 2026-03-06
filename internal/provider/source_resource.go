@@ -59,7 +59,10 @@ func (r *SourceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "A unique name for this source connector.",
+				MarkdownDescription: "A unique name for this source connector. Changing this forces a new resource to be created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"type": schema.StringAttribute{
 				Required: true,

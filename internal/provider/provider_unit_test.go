@@ -279,6 +279,36 @@ func TestWorkflowResourceMetadata(t *testing.T) {
 	}
 }
 
+func TestSourceDataSourceMetadata(t *testing.T) {
+	d := NewSourceDataSource()
+	resp := &datasource.MetadataResponse{}
+	d.Metadata(context.Background(), datasource.MetadataRequest{ProviderTypeName: "unstructured"}, resp)
+
+	if resp.TypeName != "unstructured_source" {
+		t.Errorf("expected type name 'unstructured_source', got %q", resp.TypeName)
+	}
+}
+
+func TestDestinationDataSourceMetadata(t *testing.T) {
+	d := NewDestinationDataSource()
+	resp := &datasource.MetadataResponse{}
+	d.Metadata(context.Background(), datasource.MetadataRequest{ProviderTypeName: "unstructured"}, resp)
+
+	if resp.TypeName != "unstructured_destination" {
+		t.Errorf("expected type name 'unstructured_destination', got %q", resp.TypeName)
+	}
+}
+
+func TestWorkflowDataSourceMetadata(t *testing.T) {
+	d := NewWorkflowDataSource()
+	resp := &datasource.MetadataResponse{}
+	d.Metadata(context.Background(), datasource.MetadataRequest{ProviderTypeName: "unstructured"}, resp)
+
+	if resp.TypeName != "unstructured_workflow" {
+		t.Errorf("expected type name 'unstructured_workflow', got %q", resp.TypeName)
+	}
+}
+
 func TestJobDataSourceMetadata(t *testing.T) {
 	d := NewJobDataSource()
 	resp := &datasource.MetadataResponse{}
@@ -424,5 +454,89 @@ func TestMapWorkflowToStateUnknownTemplateIDBecomesNull(t *testing.T) {
 
 	if !data.TemplateID.IsNull() {
 		t.Error("expected unknown template_id to become null")
+	}
+}
+
+func TestMapWorkflowToStatePreservesSchedule(t *testing.T) {
+	r := &WorkflowResource{}
+	// Simulate Create/Update: schedule already has the user's human-readable value.
+	data := &WorkflowResourceModel{
+		Schedule: types.StringValue("daily"),
+	}
+
+	wf := &Workflow{
+		ID:           "wf-123",
+		Name:         "scheduled",
+		WorkflowType: "custom",
+		Schedule: &WorkflowSchedule{
+			CrontabEntries: []CrontabEntry{{CronExpression: "0 0 * * *"}},
+		},
+		Status:    "active",
+		CreatedAt: "2025-01-01T00:00:00Z",
+	}
+
+	r.mapWorkflowToState(wf, data)
+
+	// Schedule should be preserved as user-provided "daily", not overwritten with cron.
+	if data.Schedule.ValueString() != "daily" {
+		t.Errorf("expected schedule preserved as 'daily', got %s", data.Schedule.ValueString())
+	}
+}
+
+func TestMapWorkflowToStateScheduleNullUsesCron(t *testing.T) {
+	r := &WorkflowResource{}
+	// Simulate Read/Import: schedule is null (unknown state).
+	data := &WorkflowResourceModel{}
+
+	wf := &Workflow{
+		ID:           "wf-123",
+		Name:         "imported",
+		WorkflowType: "custom",
+		Schedule: &WorkflowSchedule{
+			CrontabEntries: []CrontabEntry{{CronExpression: "0 0 * * *"}},
+		},
+		Status:    "active",
+		CreatedAt: "2025-01-01T00:00:00Z",
+	}
+
+	r.mapWorkflowToState(wf, data)
+
+	// When schedule was null, it should be populated from API response.
+	if data.Schedule.ValueString() != "0 0 * * *" {
+		t.Errorf("expected schedule '0 0 * * *', got %s", data.Schedule.ValueString())
+	}
+}
+
+func TestMapWorkflowToStateStripsNodeIDs(t *testing.T) {
+	r := &WorkflowResource{}
+	data := &WorkflowResourceModel{}
+
+	nodeID := "node-server-generated-id"
+	wf := &Workflow{
+		ID:           "wf-123",
+		Name:         "test",
+		WorkflowType: "custom",
+		WorkflowNodes: []WorkflowNode{
+			{ID: &nodeID, Name: "partitioner", Type: "partition", Subtype: "vlm"},
+		},
+		Status:    "active",
+		CreatedAt: "2025-01-01T00:00:00Z",
+	}
+
+	r.mapWorkflowToState(wf, data)
+
+	// Verify node IDs are stripped from state.
+	var nodes []WorkflowNode
+	if err := json.Unmarshal([]byte(data.WorkflowNodes.ValueString()), &nodes); err != nil {
+		t.Fatalf("workflow_nodes is not valid JSON: %v", err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 node, got %d", len(nodes))
+	}
+	if nodes[0].ID != nil {
+		t.Error("expected node ID to be stripped (nil)")
+	}
+	if nodes[0].Name != "partitioner" {
+		t.Errorf("expected node name 'partitioner', got %s", nodes[0].Name)
 	}
 }

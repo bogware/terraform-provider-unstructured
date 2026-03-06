@@ -305,7 +305,14 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 	}
 
 	if len(wf.WorkflowNodes) > 0 {
-		nodesJSON, err := json.Marshal(wf.WorkflowNodes)
+		// Strip server-generated node IDs before storing in state to
+		// avoid perpetual diffs with the user's input JSON.
+		cleaned := make([]WorkflowNode, len(wf.WorkflowNodes))
+		copy(cleaned, wf.WorkflowNodes)
+		for i := range cleaned {
+			cleaned[i].ID = nil
+		}
+		nodesJSON, err := json.Marshal(cleaned)
 		if err == nil {
 			data.WorkflowNodes = types.StringValue(string(nodesJSON))
 		}
@@ -313,10 +320,16 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 		data.WorkflowNodes = types.StringNull()
 	}
 
-	if wf.Schedule != nil && len(wf.Schedule.CrontabEntries) > 0 {
-		data.Schedule = types.StringValue(wf.Schedule.CrontabEntries[0].CronExpression)
-	} else {
-		data.Schedule = types.StringNull()
+	// Schedule: the API accepts human-readable values ("daily", "every hour")
+	// but returns cron expressions. Preserve the user's plan value during
+	// Create/Update to avoid perpetual diffs. Only use the API cron value
+	// during Read (when data.Schedule is null/unknown, e.g. import).
+	if data.Schedule.IsNull() || data.Schedule.IsUnknown() {
+		if wf.Schedule != nil && len(wf.Schedule.CrontabEntries) > 0 {
+			data.Schedule = types.StringValue(wf.Schedule.CrontabEntries[0].CronExpression)
+		} else {
+			data.Schedule = types.StringNull()
+		}
 	}
 
 	// TemplateID is write-only (used at creation time); preserve the
