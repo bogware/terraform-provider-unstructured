@@ -71,6 +71,7 @@ jobs:
   test:
     name: 'Acceptance Tests: Terraform ${{ matrix.terraform }}'
     needs: build
+    if: ${{ secrets.UNSTRUCTURED_API_KEY != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
