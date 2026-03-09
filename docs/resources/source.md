@@ -53,7 +53,7 @@ resource "unstructured_source" "gcs" {
 
 - `config` (String, Sensitive) A JSON-encoded string containing the connector-specific configuration. The structure depends on the connector type. For example, an S3 source might use: `jsonencode({remote_url = "s3://my-bucket/path", key = "...", secret = "..."})`.
 - `name` (String) A unique name for this source connector. Changing this forces a new resource to be created.
-- `type` (String) The type of source connector. Valid values include: `azure`, `box`, `confluence`, `couchbase`, `databricks_volumes`, `dropbox`, `elasticsearch`, `gcs`, `google_drive`, `kafka-cloud`, `mongodb`, `onedrive`, `opensearch`, `outlook`, `postgres`, `s3`, `salesforce`, `sharepoint`, `slack`, `snowflake`, `teradata`, `jira`, `zendesk`.
+- `type` (String) The type of source connector. Changing this forces a new resource to be created. Valid values include: `azure`, `box`, `confluence`, `couchbase`, `databricks_volumes`, `dropbox`, `elasticsearch`, `gcs`, `google_drive`, `kafka-cloud`, `mongodb`, `onedrive`, `opensearch`, `outlook`, `postgres`, `s3`, `salesforce`, `sharepoint`, `slack`, `snowflake`, `teradata`, `jira`, `zendesk`.
 
 ### Read-Only
 

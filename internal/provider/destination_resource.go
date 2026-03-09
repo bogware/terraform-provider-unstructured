@@ -66,7 +66,7 @@ func (r *DestinationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"type": schema.StringAttribute{
 				Required: true,
-				MarkdownDescription: "The type of destination connector. Valid values include: " +
+				MarkdownDescription: "The type of destination connector. Changing this forces a new resource to be created. Valid values include: " +
 					"`azure`, `astradb`, `azure_ai_search`, `couchbase`, `databricks_volumes`, " +
 					"`databricks_volume_delta_tables`, `delta_table`, `elasticsearch`, `gcs`, " +
 					"`kafka-cloud`, `milvus`, `mongodb`, `motherduck`, `neo4j`, `onedrive`, " +

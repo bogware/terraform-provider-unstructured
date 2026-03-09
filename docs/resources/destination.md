@@ -53,7 +53,7 @@ resource "unstructured_destination" "pinecone" {
 
 - `config` (String, Sensitive) A JSON-encoded string containing the connector-specific configuration. The structure depends on the connector type. For example, an S3 destination might use: `jsonencode({remote_url = "s3://my-bucket/output", key = "...", secret = "..."})`.
 - `name` (String) A unique name for this destination connector. Changing this forces a new resource to be created.
-- `type` (String) The type of destination connector. Valid values include: `azure`, `astradb`, `azure_ai_search`, `couchbase`, `databricks_volumes`, `databricks_volume_delta_tables`, `delta_table`, `elasticsearch`, `gcs`, `kafka-cloud`, `milvus`, `mongodb`, `motherduck`, `neo4j`, `onedrive`, `opensearch`, `pinecone`, `postgres`, `redis`, `qdrant-cloud`, `s3`, `snowflake`, `teradata`, `weaviate-cloud`, `ibm_watsonx_s3`.
+- `type` (String) The type of destination connector. Changing this forces a new resource to be created. Valid values include: `azure`, `astradb`, `azure_ai_search`, `couchbase`, `databricks_volumes`, `databricks_volume_delta_tables`, `delta_table`, `elasticsearch`, `gcs`, `kafka-cloud`, `milvus`, `mongodb`, `motherduck`, `neo4j`, `onedrive`, `opensearch`, `pinecone`, `postgres`, `redis`, `qdrant-cloud`, `s3`, `snowflake`, `teradata`, `weaviate-cloud`, `ibm_watsonx_s3`.
 
 ### Read-Only
 
