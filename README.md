@@ -169,7 +169,7 @@ resource "unstructured_workflow" "from_template" {
   name            = "template-pipeline"
   source_id       = data.unstructured_source.existing.id
   destination_id  = unstructured_destination.vectors.id
-  workflow_type   = "template"
+  workflow_type   = "platinum"
   template_id     = data.unstructured_template.basic.id
 }
 ```
@@ -180,7 +180,7 @@ The Unstructured platform supports a wide range of sources and destinations. Eac
 
 ### Sources
 
-`azure` `box` `confluence` `couchbase` `databricks_volumes` `dropbox` `elasticsearch` `gcs` `google_drive` `jira` `kafka-cloud` `mongodb` `onedrive` `opensearch` `outlook` `postgres` `s3` `salesforce` `sftp` `sharepoint` `slack` `snowflake` `teradata` `zendesk`
+`azure` `box` `confluence` `couchbase` `databricks_volumes` `dropbox` `elasticsearch` `gcs` `google_drive` `jira` `kafka-cloud` `mongodb` `onedrive` `opensearch` `outlook` `postgres` `s3` `salesforce` `sharepoint` `slack` `snowflake` `teradata` `zendesk`
 
 ### Destinations
 

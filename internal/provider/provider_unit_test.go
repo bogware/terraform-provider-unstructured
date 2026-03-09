@@ -352,7 +352,7 @@ func TestMapWorkflowToStateBasic(t *testing.T) {
 		ReprocessAll: true,
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	if data.ID.ValueString() != "wf-123" {
 		t.Errorf("expected ID wf-123, got %s", data.ID.ValueString())
@@ -395,7 +395,7 @@ func TestMapWorkflowToStateEmptyFields(t *testing.T) {
 		CreatedAt:    "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	if !data.SourceID.IsNull() {
 		t.Error("expected source_id to be null")
@@ -428,7 +428,7 @@ func TestMapWorkflowToStatePreservesTemplateID(t *testing.T) {
 		CreatedAt:    "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	// TemplateID should be preserved from existing state.
 	if data.TemplateID.ValueString() != "tmpl-existing" {
@@ -450,7 +450,7 @@ func TestMapWorkflowToStateUnknownTemplateIDBecomesNull(t *testing.T) {
 		CreatedAt:    "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	if !data.TemplateID.IsNull() {
 		t.Error("expected unknown template_id to become null")
@@ -475,7 +475,7 @@ func TestMapWorkflowToStatePreservesSchedule(t *testing.T) {
 		CreatedAt: "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	// Schedule should be preserved as user-provided "daily", not overwritten with cron.
 	if data.Schedule.ValueString() != "daily" {
@@ -499,7 +499,7 @@ func TestMapWorkflowToStateScheduleNullUsesCron(t *testing.T) {
 		CreatedAt: "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	// When schedule was null, it should be populated from API response.
 	if data.Schedule.ValueString() != "0 0 * * *" {
@@ -523,7 +523,7 @@ func TestMapWorkflowToStateStripsNodeIDs(t *testing.T) {
 		CreatedAt: "2025-01-01T00:00:00Z",
 	}
 
-	r.mapWorkflowToState(wf, data)
+	r.mapWorkflowToState(context.Background(), wf, data)
 
 	// Verify node IDs are stripped from state.
 	var nodes []WorkflowNode

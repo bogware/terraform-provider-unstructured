@@ -108,7 +108,7 @@ func (d *JobDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 		return
 	}
 	if job == nil {
-		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Job %s not found.", data.ID.ValueString()))
+		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Job with ID %q not found.", data.ID.ValueString()))
 		return
 	}
 

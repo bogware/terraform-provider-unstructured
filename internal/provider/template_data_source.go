@@ -99,7 +99,7 @@ func (d *TemplateDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 	if tmpl == nil {
-		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Template %s not found.", data.ID.ValueString()))
+		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Template with ID %q not found.", data.ID.ValueString()))
 		return
 	}
 

@@ -66,7 +66,7 @@ func (r *SourceResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"type": schema.StringAttribute{
 				Required: true,
-				MarkdownDescription: "The type of source connector. Valid values include: " +
+				MarkdownDescription: "The type of source connector. Changing this forces a new resource to be created. Valid values include: " +
 					"`azure`, `box`, `confluence`, `couchbase`, `databricks_volumes`, `dropbox`, " +
 					"`elasticsearch`, `gcs`, `google_drive`, `kafka-cloud`, `mongodb`, `onedrive`, " +
 					"`opensearch`, `outlook`, `postgres`, `s3`, `salesforce`, `sharepoint`, " +

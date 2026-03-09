@@ -14,9 +14,9 @@ resource "unstructured_source" "azure" {
   name = "my-azure-source"
   type = "azure"
   config = jsonencode({
-    remote_url    = "az://my-container/documents"
-    account_name  = var.azure_account_name
-    account_key   = var.azure_account_key
+    remote_url   = "az://my-container/documents"
+    account_name = var.azure_account_name
+    account_key  = var.azure_account_key
   })
 }
 

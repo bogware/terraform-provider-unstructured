@@ -20,6 +20,6 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 func testAccPreCheck(t *testing.T) {
 	t.Helper()
 	if os.Getenv("UNSTRUCTURED_API_KEY") == "" {
-		t.Fatal("UNSTRUCTURED_API_KEY must be set for acceptance tests")
+		t.Skip("UNSTRUCTURED_API_KEY not set, skipping acceptance test")
 	}
 }

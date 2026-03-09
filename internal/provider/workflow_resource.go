@@ -79,8 +79,8 @@ func (r *WorkflowResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"workflow_type": schema.StringAttribute{
 				Required: true,
-				MarkdownDescription: "The type of workflow. Use `custom` for workflows with manually specified nodes, " +
-					"or `template` for template-based workflows.",
+				MarkdownDescription: "The type of workflow. Valid values: `basic`, `advanced`, `platinum`, `custom`. " +
+					"Use `custom` for workflows with manually specified nodes, or set `template_id` for template-based workflows.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -92,8 +92,12 @@ func (r *WorkflowResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"Example: `jsonencode([{name = \"partitioner\", type = \"partition\", subtype = \"vlm\", settings = {...}}])`.",
 			},
 			"template_id": schema.StringAttribute{
-				Optional:            true,
-				MarkdownDescription: "The template ID to use for `template` type workflows.",
+				Optional: true,
+				MarkdownDescription: "The template ID to use for `template` type workflows. " +
+					"Cannot be changed after creation.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"schedule": schema.StringAttribute{
 				Optional: true,
@@ -184,7 +188,7 @@ func (r *WorkflowResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	r.mapWorkflowToState(wf, &data)
+	r.mapWorkflowToState(ctx, wf, &data)
 	tflog.Trace(ctx, "created workflow", map[string]interface{}{"id": wf.ID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -207,7 +211,7 @@ func (r *WorkflowResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	r.mapWorkflowToState(wf, &data)
+	r.mapWorkflowToState(ctx, wf, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -252,7 +256,7 @@ func (r *WorkflowResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	r.mapWorkflowToState(wf, &data)
+	r.mapWorkflowToState(ctx, wf, &data)
 	tflog.Trace(ctx, "updated workflow", map[string]interface{}{"id": data.ID.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -278,7 +282,7 @@ func (r *WorkflowResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResourceModel) {
+func (r *WorkflowResource) mapWorkflowToState(ctx context.Context, wf *Workflow, data *WorkflowResourceModel) {
 	data.ID = types.StringValue(wf.ID)
 	data.Name = types.StringValue(wf.Name)
 	data.WorkflowType = types.StringValue(wf.WorkflowType)
@@ -313,7 +317,10 @@ func (r *WorkflowResource) mapWorkflowToState(wf *Workflow, data *WorkflowResour
 			cleaned[i].ID = nil
 		}
 		nodesJSON, err := json.Marshal(cleaned)
-		if err == nil {
+		if err != nil {
+			tflog.Error(ctx, "failed to marshal workflow nodes", map[string]interface{}{"error": err.Error()})
+			data.WorkflowNodes = types.StringNull()
+		} else {
 			data.WorkflowNodes = types.StringValue(string(nodesJSON))
 		}
 	} else {

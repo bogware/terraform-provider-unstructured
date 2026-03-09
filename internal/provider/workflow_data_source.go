@@ -67,7 +67,7 @@ func (d *WorkflowDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			},
 			"workflow_type": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The type of workflow.",
+				MarkdownDescription: "The type of workflow (`basic`, `advanced`, `platinum`, or `custom`).",
 			},
 			"workflow_nodes": schema.StringAttribute{
 				Computed:            true,
@@ -127,7 +127,7 @@ func (d *WorkflowDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 	if wf == nil {
-		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Workflow %s not found.", data.ID.ValueString()))
+		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Workflow with ID %q not found.", data.ID.ValueString()))
 		return
 	}
 
