@@ -36,4 +36,4 @@ data "unstructured_workflow" "example" {
 - `status` (String) The current status of the workflow.
 - `updated_at` (String) The timestamp when the workflow was last updated.
 - `workflow_nodes` (String) A JSON-encoded array of workflow node definitions.
-- `workflow_type` (String) The type of workflow.
+- `workflow_type` (String) The type of workflow (`basic`, `advanced`, `platinum`, or `custom`).

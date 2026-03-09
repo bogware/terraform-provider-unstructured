@@ -8,6 +8,6 @@ resource "unstructured_workflow" "from_template" {
   name           = "template-based-pipeline"
   source_id      = "existing-source-uuid"
   destination_id = "existing-destination-uuid"
-  workflow_type  = "template"
+  workflow_type  = "platinum"
   template_id    = data.unstructured_template.example.id
 }

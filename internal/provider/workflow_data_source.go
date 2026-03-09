@@ -67,7 +67,7 @@ func (d *WorkflowDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			},
 			"workflow_type": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The type of workflow.",
+				MarkdownDescription: "The type of workflow (`basic`, `advanced`, `platinum`, or `custom`).",
 			},
 			"workflow_nodes": schema.StringAttribute{
 				Computed:            true,

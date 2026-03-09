@@ -55,12 +55,12 @@ resource "unstructured_workflow" "custom" {
   reprocess_all = false
 }
 
-# Template-based workflow
+# Template-based workflow using a pre-configured template
 resource "unstructured_workflow" "from_template" {
   name           = "template-pipeline"
   source_id      = unstructured_source.s3.id
   destination_id = unstructured_destination.pinecone.id
-  workflow_type  = "template"
+  workflow_type  = "platinum"
   template_id    = "template-uuid"
   schedule       = "weekly"
 }
@@ -72,7 +72,7 @@ resource "unstructured_workflow" "from_template" {
 ### Required
 
 - `name` (String) A unique name for this workflow.
-- `workflow_type` (String) The type of workflow. Use `custom` for workflows with manually specified nodes, or `template` for template-based workflows.
+- `workflow_type` (String) The type of workflow. Valid values: `basic`, `advanced`, `platinum`, `custom`. Use `custom` for workflows with manually specified nodes, or set `template_id` for template-based workflows.
 
 ### Optional
 

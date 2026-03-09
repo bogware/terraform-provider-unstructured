@@ -79,8 +79,8 @@ func (r *WorkflowResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"workflow_type": schema.StringAttribute{
 				Required: true,
-				MarkdownDescription: "The type of workflow. Use `custom` for workflows with manually specified nodes, " +
-					"or `template` for template-based workflows.",
+				MarkdownDescription: "The type of workflow. Valid values: `basic`, `advanced`, `platinum`, `custom`. " +
+					"Use `custom` for workflows with manually specified nodes, or set `template_id` for template-based workflows.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
