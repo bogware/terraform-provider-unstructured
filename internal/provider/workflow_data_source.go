@@ -127,7 +127,7 @@ func (d *WorkflowDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 	if wf == nil {
-		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Workflow %s not found.", data.ID.ValueString()))
+		resp.Diagnostics.AddError("Not Found", fmt.Sprintf("Workflow with ID %q not found.", data.ID.ValueString()))
 		return
 	}
 

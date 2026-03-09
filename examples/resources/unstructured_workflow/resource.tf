@@ -1,5 +1,5 @@
-# Custom workflow with VLM partitioning and chunking
-resource "unstructured_workflow" "example" {
+# Custom workflow with VLM partitioning, chunking, and embedding
+resource "unstructured_workflow" "custom" {
   name           = "my-document-pipeline"
   source_id      = unstructured_source.s3.id
   destination_id = unstructured_destination.pinecone.id
@@ -38,4 +38,14 @@ resource "unstructured_workflow" "example" {
 
   schedule      = "daily"
   reprocess_all = false
+}
+
+# Template-based workflow
+resource "unstructured_workflow" "from_template" {
+  name           = "template-pipeline"
+  source_id      = unstructured_source.s3.id
+  destination_id = unstructured_destination.pinecone.id
+  workflow_type  = "template"
+  template_id    = "template-uuid"
+  schedule       = "weekly"
 }
